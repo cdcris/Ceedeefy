@@ -352,7 +352,10 @@ filter.addEventListener('input', () => { viewingPlaylist = null; viewingArtist =
 sortSelect.addEventListener('change', () => { sortMode = sortSelect.value; visibleTracks = sortTracks(visibleTracks); renderTracks(); });
 document.querySelector('#play-all').addEventListener('click', () => playTrack(currentIndex >= 0 ? currentIndex : 0));
 document.querySelector('#all-songs').addEventListener('click', showAllSongs);
-document.querySelector('#refresh').addEventListener('click', loadLibrary);
+document.querySelector('#refresh').addEventListener('click', () => {
+  loadLibrary();
+  refreshSharedPlaylists();
+});
 document.querySelector('#artists-toggle').addEventListener('click', event => {
   const button = event.currentTarget;
   const expanded = button.getAttribute('aria-expanded') === 'true';
@@ -398,6 +401,3 @@ document.addEventListener('keydown', event => {
 renderPlaylists();
 loadLibrary();
 refreshSharedPlaylists(true);
-window.setInterval(() => {
-  if (!document.hidden) refreshSharedPlaylists();
-}, 10000);
