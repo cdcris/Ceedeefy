@@ -439,3 +439,7 @@
 @media (prefers-reduced-motion: reduce) {
   .sidebar, .sidebar-backdrop, .artist-chevron { transition: none; }
 }
+
+.icon-svg{width:1em;height:1em;display:inline-block;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}.icon-button .icon-svg,.nav-icon .icon-svg,.playlist-symbol .icon-svg,.mini-cover .icon-svg,.library-cover .icon-svg,.quick-cover .icon-svg,.track-art .icon-svg,.song-number .icon-svg{width:1.1em;height:1.1em}.playlist-play .icon-svg,.artist-play .icon-svg,.quick-play .icon-svg{width:14px;height:14px}.playlist-delete .icon-svg{width:14px;height:14px}.add-track .icon-svg{width:15px;height:15px}.mini-cover .cover-image{position:absolute}.mini-cover{position:relative}.mini-cover>.icon-svg{position:absolute;width:16px;height:16px}.song-number .icon-svg{width:14px;height:14px;color:var(--green)}.icon-button{display:inline-grid;place-items:center}.icon-button .icon-svg{width:18px;height:18px}.nav-icon .icon-svg{width:20px;height:20px}.round-button .icon-svg{width:16px;height:16px}.search-box>span .icon-svg{width:17px;height:17px}.chevron .icon-svg,.artist-chevron .icon-svg{width:14px;height:14px}.library-cover .icon-svg,.quick-cover .icon-svg{width:23px;height:23px}.track-art .icon-svg{width:23px;height:23px}
+
+.play-button{padding:0}.play-button .icon-svg{width:15px;height:15px}.play-button[aria-label="Play"] .icon-svg{transform:translateX(-2px)}
