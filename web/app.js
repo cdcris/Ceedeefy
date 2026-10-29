@@ -61,7 +61,7 @@ function showPlaylist(playlist) {
   document.querySelector('#track-count').textContent = visibleTracks.length;
   document.querySelector('.songs-section h2').firstChild.textContent = `${playlist.name} `;
   document.querySelector('#empty-library').hidden = true;
-  if (!visibleTracks.length) list.innerHTML = '<tr><td colspan="4" class="empty-state">This playlist is empty. Add songs with the + button.</td></tr>';
+  if (!visibleTracks.length) list.innerHTML = '<tr><td colspan="6" class="empty-state">This playlist is empty. Add songs with the + button.</td></tr>';
   else renderTracks();
 }
 
@@ -102,7 +102,7 @@ async function loadLibrary() {
     document.querySelector('#connection-status').textContent = 'Library unavailable';
     document.querySelector('.status-dot').classList.add('offline');
     document.querySelector('#track-count').textContent = '—';
-    list.innerHTML = `<tr><td colspan="4" class="empty-state">Couldn’t reach the library.<br><small>${escapeHtml(error.message)}</small></td></tr>`;
+    list.innerHTML = `<tr><td colspan="6" class="empty-state">Couldn’t reach the library.<br><small>${escapeHtml(error.message)}</small></td></tr>`;
     document.querySelector('#empty-library').hidden = true;
   }
 }
@@ -117,7 +117,7 @@ function renderTracks() {
     return `<tr class="track-row ${active?'selected':''}" data-index="${originalIndex}" tabindex="0" aria-label="Play ${escapeHtml(track.title)} by ${escapeHtml(track.artist)}">
       <td class="song-number">${active && !audio.paused ? '♫' : String(index+1).padStart(2,'0')}</td>
       <td><div class="song-title-cell"><span class="mini-cover" style="${coverStyle(originalIndex)}">♫</span><span class="song-copy"><span class="song-title">${escapeHtml(track.title)}</span><span class="song-artist">${escapeHtml(track.artist)}</span></span><button class="add-track" aria-label="${inPlaylist ? 'Remove' : 'Add'} ${escapeHtml(track.title)} ${inPlaylist ? 'from' : 'to'} playlist" title="${inPlaylist ? 'Remove from playlist' : 'Add to playlist'}">${inPlaylist ? '−' : '＋'}</button></div></td>
-      <td class="album-cell">${escapeHtml(track.album)}</td><td class="duration-cell">${formatTime(track.duration)}</td></tr>`;
+      <td class="album-cell">${escapeHtml(track.album)}</td><td class="format-cell"><span class="format-badge">${escapeHtml(track.format || 'AUDIO')}</span></td><td class="quality-cell">${track.bitrate_kbps ? `${track.bitrate_kbps} kbps` : '—'}</td><td class="duration-cell">${formatTime(track.duration)}</td></tr>`;
   }).join('');
   list.querySelectorAll('.track-row').forEach(row => {
     row.addEventListener('click', () => playTrack(Number(row.dataset.index)));

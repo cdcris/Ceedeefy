@@ -212,3 +212,26 @@
   pointer-events: none;
 }
 .art-disc div { z-index: 1; }
+
+.format-col { width: 76px; }
+.quality-col { width: 100px; }
+.format-cell { color: #a9aaa3; font-size: 10px; }
+.format-badge {
+  display: inline-block;
+  border: 1px solid #35372f;
+  border-radius: 4px;
+  padding: 3px 5px;
+  color: #c5c6be;
+  font-size: 9px;
+  letter-spacing: .35px;
+}
+.quality-cell {
+  color: #a0a199;
+  white-space: nowrap;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+@media(max-width:620px) {
+  .format-col { width: 65px; }
+  .quality-col { width: 82px; }
+}
