@@ -18,6 +18,4 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
-# Shared playlists stored by the server
-/playlists.json
 /playlists.json.tmp
