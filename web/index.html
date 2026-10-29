@@ -12,29 +12,29 @@
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <a class="brand" href="#home" aria-label="Ceedeefy home"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><span>ceedeefy</span></a>
       <nav class="main-nav" aria-label="Main navigation">
         <a class="nav-link active" href="#home"><span class="nav-icon">⌂</span>Home</a>
-        <a class="nav-link" href="#search" id="search-link"><span class="nav-icon">⌕</span>Search</a>
       </nav>
       <div class="library-heading"><span>Your library</span><button id="refresh" class="icon-button" aria-label="Refresh library" title="Refresh library">↻</button></div>
       <button class="library-card active" id="all-songs"><span class="library-cover">♫</span><span><strong>All songs</strong><small id="sidebar-count">Your collection</small></span></button>
       <div class="playlist-heading"><span>Playlists</span><button id="create-playlist" class="icon-button" aria-label="Create playlist" title="Create playlist">＋</button></div>
       <div id="playlist-list" class="playlist-list" aria-label="Your playlists"></div>
-      <div class="artist-heading"><span>Artists</span><span id="artist-count" class="artist-count">0</span></div>
+      <div class="artist-heading"><button id="artists-toggle" class="artists-toggle" aria-expanded="true" aria-controls="artist-list"><span>Artists</span><span id="artist-count" class="artist-count">0</span><span class="artist-chevron" aria-hidden="true">⌄</span></button></div>
       <div id="artist-list" class="artist-list" aria-label="Artists in your library"></div>
       <div class="sidebar-footer"><span class="status-dot"></span><span id="connection-status">Connecting to library</span></div>
     </aside>
+    <button class="sidebar-backdrop" id="sidebar-backdrop" aria-label="Close navigation menu" tabindex="-1"></button>
 
     <main class="main-content" id="home">
-      <header class="topbar"><div class="history-buttons"><button class="round-button" aria-label="Go back" onclick="history.back()">‹</button><button class="round-button" aria-label="Go forward" onclick="history.forward()">›</button></div><div class="profile-pill"><span class="profile-avatar">C</span><span>My space</span><span class="chevron">⌄</span></div></header>
+      <header class="topbar"><div class="history-buttons"><button class="menu-button" id="menu-toggle" aria-label="Open navigation menu" aria-controls="sidebar" aria-expanded="false"><span></span><span></span><span></span></button><button class="round-button" aria-label="Go back" onclick="history.back()">‹</button><button class="round-button" aria-label="Go forward" onclick="history.forward()">›</button></div><div class="profile-pill"><span class="profile-avatar">C</span><span>My space</span><span class="chevron">⌄</span></div></header>
       <section class="welcome-row"><div><p class="eyebrow">YOUR MUSIC, YOUR WAY</p><h1>A little more <em>you.</em></h1><p class="welcome-copy">Every favorite, all in one place.</p></div><div class="welcome-art" aria-hidden="true"><div class="art-disc"><div></div></div><span class="art-star star-one">✳</span><span class="art-star star-two">✦</span></div></section>
       <section class="quick-pick"><button class="quick-card" id="play-all"><span class="quick-cover">♫</span><span>All songs</span><span class="quick-play">▶</span></button></section>
       <section class="mobile-playlists" id="mobile-playlists" hidden><div class="mobile-playlist-heading">Your playlists <button id="mobile-create-playlist" class="icon-button" aria-label="Create playlist">＋</button></div><div id="mobile-playlist-list"></div></section>
       <section class="songs-section" id="search">
         <div class="section-heading"><div><p class="eyebrow">IN YOUR LIBRARY</p><h2>All songs <span class="count-badge" id="track-count">—</span></h2></div><div class="table-tools"><label class="sort-control"><span>Sort by</span><select id="sort-select" aria-label="Sort songs"><option value="artist">Artist</option><option value="title">Title</option><option value="created">Date created</option></select></label><label class="search-box"><span>⌕</span><input id="filter" type="search" placeholder="Find a song" autocomplete="off" /><kbd>/</kbd></label></div></div>
-        <div class="table-wrap"><table><thead><tr><th class="number-col">#</th><th>Title</th><th>Album</th><th class="format-col">Format</th><th class="quality-col">Bitrate</th><th class="duration-col">♫</th></tr></thead><tbody id="track-list"><tr><td colspan="6" class="empty-state"><span class="loading-ring"></span><br />Finding your music…</td></tr></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th class="number-col">#</th><th>Title</th><th>Album</th><th class="quality-col">Bitrate</th><th class="duration-col">♫</th></tr></thead><tbody id="track-list"><tr><td colspan="5" class="empty-state"><span class="loading-ring"></span><br />Finding your music…</td></tr></tbody></table></div>
         <div id="empty-library" class="empty-library" hidden><span>♫</span><h3>No songs found yet</h3><p>Set <code>MUSIC_DIR</code> to your Samba share and refresh the library.</p></div>
       </section>
       <footer class="page-footer">Made for the music you already love <span>✳</span></footer>

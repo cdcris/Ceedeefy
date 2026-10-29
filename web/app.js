@@ -94,7 +94,7 @@ function showPlaylist(playlist) {
   document.querySelector('#track-count').textContent = visibleTracks.length;
   document.querySelector('.songs-section h2').firstChild.textContent = `${playlist.name} `;
   document.querySelector('#empty-library').hidden = true;
-  if (!visibleTracks.length) list.innerHTML = '<tr><td colspan="6" class="empty-state">This playlist is empty. Add songs with the + button.</td></tr>';
+  if (!visibleTracks.length) list.innerHTML = '<tr><td colspan="5" class="empty-state">This playlist is empty. Add songs with the + button.</td></tr>';
   else renderTracks();
 }
 
@@ -166,7 +166,7 @@ async function loadLibrary() {
     document.querySelector('#connection-status').textContent = 'Library unavailable';
     document.querySelector('.status-dot').classList.add('offline');
     document.querySelector('#track-count').textContent = '—';
-    list.innerHTML = `<tr><td colspan="6" class="empty-state">Couldn’t reach the library.<br><small>${escapeHtml(error.message)}</small></td></tr>`;
+    list.innerHTML = `<tr><td colspan="5" class="empty-state">Couldn’t reach the library.<br><small>${escapeHtml(error.message)}</small></td></tr>`;
     document.querySelector('#empty-library').hidden = true;
   }
 }
@@ -182,7 +182,7 @@ function renderTracks() {
     return `<tr class="track-row ${active?'selected':''}" data-index="${originalIndex}" tabindex="0" aria-label="Play ${escapeHtml(track.title)} by ${escapeHtml(track.artist)}">
       <td class="song-number">${active && !audio.paused ? '♫' : String(index+1).padStart(2,'0')}</td>
       <td><div class="song-title-cell"><span class="mini-cover" style="${coverStyle(originalIndex)}">♫${coverImage}</span><span class="song-copy"><span class="song-title">${escapeHtml(track.title)}</span><span class="song-artist">${escapeHtml(track.artist)}</span></span><button class="add-track" aria-label="${inPlaylist ? 'Remove' : 'Add'} ${escapeHtml(track.title)} ${inPlaylist ? 'from' : 'to'} playlist" title="${inPlaylist ? 'Remove from playlist' : 'Add to playlist'}">${inPlaylist ? '−' : '＋'}</button></div></td>
-      <td class="album-cell">${escapeHtml(track.album)}</td><td class="format-cell"><span class="format-badge">${escapeHtml(track.format || 'AUDIO')}</span></td><td class="quality-cell">${track.bitrate_kbps ? `${track.bitrate_kbps} kbps` : '—'}</td><td class="duration-cell">${formatTime(track.duration)}</td></tr>`;
+      <td class="album-cell">${escapeHtml(track.album)}</td><td class="quality-cell">${track.bitrate_kbps ? `${track.bitrate_kbps} kbps` : '—'}</td><td class="duration-cell">${formatTime(track.duration)}</td></tr>`;
   }).join('');
   list.querySelectorAll('.cover-image').forEach(image => image.addEventListener('error', () => image.remove(), {once:true}));
   list.querySelectorAll('.track-row').forEach(row => {
@@ -245,7 +245,26 @@ sortSelect.addEventListener('change', () => { sortMode = sortSelect.value; visib
 document.querySelector('#play-all').addEventListener('click', () => playTrack(currentIndex >= 0 ? currentIndex : 0));
 document.querySelector('#all-songs').addEventListener('click', showAllSongs);
 document.querySelector('#refresh').addEventListener('click', loadLibrary);
-document.querySelector('#search-link').addEventListener('click', () => setTimeout(() => filter.focus(), 0));
+document.querySelector('#artists-toggle').addEventListener('click', event => {
+  const button = event.currentTarget;
+  const expanded = button.getAttribute('aria-expanded') === 'true';
+  button.setAttribute('aria-expanded', String(!expanded));
+  document.querySelector('#artist-list').hidden = expanded;
+});
+const menuToggle = document.querySelector('#menu-toggle');
+const sidebarBackdrop = document.querySelector('#sidebar-backdrop');
+function setMobileMenuOpen(open) {
+  const wasOpen = document.body.classList.contains('mobile-menu-open');
+  document.body.classList.toggle('mobile-menu-open', open);
+  menuToggle.setAttribute('aria-expanded', String(open));
+  menuToggle.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+  if (!open && wasOpen) menuToggle.focus();
+}
+menuToggle.addEventListener('click', () => setMobileMenuOpen(menuToggle.getAttribute('aria-expanded') !== 'true'));
+sidebarBackdrop.addEventListener('click', () => setMobileMenuOpen(false));
+document.querySelectorAll('.sidebar .nav-link, .sidebar .brand, .sidebar #all-songs').forEach(link => {
+  link.addEventListener('click', () => setMobileMenuOpen(false));
+});
 document.querySelector('#toggle-play').addEventListener('click', async () => {
   if (currentIndex < 0) return playTrack(0);
   if (audio.paused) { try { await audio.play(); } catch (error) { console.error(error); } } else audio.pause();
@@ -262,6 +281,10 @@ audio.addEventListener('pause', () => { document.querySelector('.welcome-art').c
 audio.addEventListener('loadedmetadata', () => { if(tracks[currentIndex]) tracks[currentIndex].duration=audio.duration; document.querySelector('#remaining').textContent=formatTime(audio.duration); renderTracks(); });
 audio.addEventListener('timeupdate', () => { document.querySelector('#elapsed').textContent=formatTime(audio.currentTime); document.querySelector('#remaining').textContent=formatTime(audio.duration); document.querySelector('#seek').value=Number.isFinite(audio.duration)&&audio.duration>0?String(Math.round(audio.currentTime/audio.duration*1000)):'0'; });
 audio.addEventListener('ended', () => { if(!repeat) stepTrack(1); });
-document.addEventListener('keydown', event => { if(event.key==='/'&&document.activeElement!==filter){event.preventDefault();filter.focus();} if(event.code==='Space'&&document.activeElement!==filter&&currentIndex>=0){event.preventDefault();playButton.click();} });
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && document.body.classList.contains('mobile-menu-open')) setMobileMenuOpen(false);
+  if(event.key==='/'&&document.activeElement!==filter){event.preventDefault();filter.focus();}
+  if(event.code==='Space'&&document.activeElement!==filter&&currentIndex>=0){event.preventDefault();playButton.click();}
+});
 renderPlaylists();
 loadLibrary();
