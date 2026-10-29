@@ -114,11 +114,13 @@ function renderTracks() {
   list.innerHTML = visibleTracks.map((track, index) => {
     const originalIndex = tracks.indexOf(track), active = originalIndex === currentIndex;
     const inPlaylist = viewingPlaylist !== null;
+    const coverImage = track.artwork_url ? `<img class="cover-image" src="${escapeHtml(track.artwork_url)}" alt="" loading="lazy" />` : '';
     return `<tr class="track-row ${active?'selected':''}" data-index="${originalIndex}" tabindex="0" aria-label="Play ${escapeHtml(track.title)} by ${escapeHtml(track.artist)}">
       <td class="song-number">${active && !audio.paused ? '♫' : String(index+1).padStart(2,'0')}</td>
-      <td><div class="song-title-cell"><span class="mini-cover" style="${coverStyle(originalIndex)}">♫</span><span class="song-copy"><span class="song-title">${escapeHtml(track.title)}</span><span class="song-artist">${escapeHtml(track.artist)}</span></span><button class="add-track" aria-label="${inPlaylist ? 'Remove' : 'Add'} ${escapeHtml(track.title)} ${inPlaylist ? 'from' : 'to'} playlist" title="${inPlaylist ? 'Remove from playlist' : 'Add to playlist'}">${inPlaylist ? '−' : '＋'}</button></div></td>
+      <td><div class="song-title-cell"><span class="mini-cover" style="${coverStyle(originalIndex)}">♫${coverImage}</span><span class="song-copy"><span class="song-title">${escapeHtml(track.title)}</span><span class="song-artist">${escapeHtml(track.artist)}</span></span><button class="add-track" aria-label="${inPlaylist ? 'Remove' : 'Add'} ${escapeHtml(track.title)} ${inPlaylist ? 'from' : 'to'} playlist" title="${inPlaylist ? 'Remove from playlist' : 'Add to playlist'}">${inPlaylist ? '−' : '＋'}</button></div></td>
       <td class="album-cell">${escapeHtml(track.album)}</td><td class="format-cell"><span class="format-badge">${escapeHtml(track.format || 'AUDIO')}</span></td><td class="quality-cell">${track.bitrate_kbps ? `${track.bitrate_kbps} kbps` : '—'}</td><td class="duration-cell">${formatTime(track.duration)}</td></tr>`;
   }).join('');
+  list.querySelectorAll('.cover-image').forEach(image => image.addEventListener('error', () => image.remove(), {once:true}));
   list.querySelectorAll('.track-row').forEach(row => {
     row.addEventListener('click', () => playTrack(Number(row.dataset.index)));
     row.addEventListener('keydown', event => { if (event.key === 'Enter') playTrack(Number(row.dataset.index)); });
@@ -140,8 +142,17 @@ async function playTrack(index) {
   const track = tracks[index]; audio.src = track.src;
   document.querySelector('#current-title').textContent = track.title;
   document.querySelector('#current-artist').textContent = track.artist;
-  document.querySelector('#current-art').style = coverStyle(index);
-  document.querySelector('#current-art').textContent = '♫';
+  const currentArt = document.querySelector('#current-art');
+  currentArt.style = coverStyle(index);
+  currentArt.textContent = '♫';
+  if (track.artwork_url) {
+    const image = document.createElement('img');
+    image.className = 'cover-image';
+    image.alt = `${track.album} album art`;
+    image.src = track.artwork_url;
+    image.addEventListener('error', () => image.remove(), {once:true});
+    currentArt.append(image);
+  }
   renderTracks();
   try { await audio.play(); } catch (error) { document.querySelector('#connection-status').textContent = 'Couldn’t play this song'; console.error('Playback failed:', error); }
 }

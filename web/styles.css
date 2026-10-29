@@ -235,3 +235,13 @@
   .format-col { width: 65px; }
   .quality-col { width: 82px; }
 }
+
+.mini-cover, .track-art { position: relative; overflow: hidden; }
+.cover-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}

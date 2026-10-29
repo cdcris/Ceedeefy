@@ -1,10 +1,18 @@
-use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
-use serde::Serialize;
+use axum::{
+    Json, Router,
+    body::Body,
+    extract::{Query, State},
+    http::{StatusCode, header::CONTENT_TYPE},
+    response::Response,
+    routing::get,
+};
+use lofty::{file::TaggedFileExt, picture::PictureType, probe::Probe};
+use serde::{Deserialize, Serialize};
 use std::{
     env,
     fs::File,
     io::{Read, Seek, SeekFrom},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     sync::Arc,
 };
 use tower_http::services::ServeDir;
@@ -23,8 +31,19 @@ struct Track {
     album: String,
     format: String,
     bitrate_kbps: Option<u32>,
+    artwork_url: String,
     duration: Option<u64>,
     src: String,
+}
+
+#[derive(Deserialize)]
+struct ArtworkQuery {
+    track: String,
+}
+
+struct EmbeddedArtwork {
+    bytes: Vec<u8>,
+    mime_type: &'static str,
 }
 
 async fn tracks(State(state): State<AppState>) -> Result<Json<Vec<Track>>, (StatusCode, String)> {
@@ -33,6 +52,45 @@ async fn tracks(State(state): State<AppState>) -> Result<Json<Vec<Track>>, (Stat
         .await
         .map_err(internal_error)??;
     Ok(Json(items))
+}
+
+async fn artwork(
+    State(state): State<AppState>,
+    Query(query): Query<ArtworkQuery>,
+) -> Result<Response, (StatusCode, String)> {
+    let root = state.music_root.clone();
+    let image = tokio::task::spawn_blocking(move || {
+        let relative = Path::new(&query.track);
+        if relative
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
+        {
+            return Err((StatusCode::BAD_REQUEST, "Invalid track path".to_owned()));
+        }
+
+        let canonical_root = root.canonicalize().map_err(internal_error)?;
+        let path = canonical_root
+            .join(relative)
+            .canonicalize()
+            .map_err(|_| (StatusCode::NOT_FOUND, "Track not found".to_owned()))?;
+        if !path.starts_with(&canonical_root) {
+            return Err((
+                StatusCode::FORBIDDEN,
+                "Track path is outside the library".to_owned(),
+            ));
+        }
+        embedded_artwork(&path).ok_or((
+            StatusCode::NOT_FOUND,
+            "No embedded artwork found".to_owned(),
+        ))
+    })
+    .await
+    .map_err(internal_error)??;
+
+    Response::builder()
+        .header(CONTENT_TYPE, image.mime_type)
+        .body(Body::from(image.bytes))
+        .map_err(internal_error)
 }
 
 fn scan_library(root: &Path) -> Result<Vec<Track>, (StatusCode, String)> {
@@ -80,6 +138,7 @@ fn scan_library(root: &Path) -> Result<Vec<Track>, (StatusCode, String)> {
         } else {
             None
         };
+        let artwork_url = format!("/api/artwork?track={}", encode_query_component(&id));
         tracks.push(Track {
             src: format!("/media/{}", encode_path(&id)),
             id,
@@ -88,6 +147,7 @@ fn scan_library(root: &Path) -> Result<Vec<Track>, (StatusCode, String)> {
             album,
             format,
             bitrate_kbps,
+            artwork_url,
             duration: None,
         });
     }
@@ -98,6 +158,31 @@ fn scan_library(root: &Path) -> Result<Vec<Track>, (StatusCode, String)> {
             .then(a.title.to_lowercase().cmp(&b.title.to_lowercase()))
     });
     Ok(tracks)
+}
+
+fn embedded_artwork(path: &Path) -> Option<EmbeddedArtwork> {
+    let tagged_file = Probe::open(path).ok()?.read().ok()?;
+    let tag = tagged_file.primary_tag()?;
+    let picture = tag
+        .pictures()
+        .iter()
+        .find(|picture| picture.pic_type() == PictureType::CoverFront)
+        .or_else(|| tag.pictures().first())?;
+    let mime_type = match picture.mime_type()?.as_str() {
+        "image/jpeg" => "image/jpeg",
+        "image/png" => "image/png",
+        "image/gif" => "image/gif",
+        "image/bmp" => "image/bmp",
+        "image/tiff" => "image/tiff",
+        _ => return None,
+    };
+    if picture.data().is_empty() || picture.data().len() > 20 * 1024 * 1024 {
+        return None;
+    }
+    Some(EmbeddedArtwork {
+        bytes: picture.data().to_vec(),
+        mime_type,
+    })
 }
 
 fn mp3_average_bitrate(path: &Path) -> Option<u32> {
@@ -239,6 +324,19 @@ fn encode_path(path: &str) -> String {
         .join("/")
 }
 
+fn encode_query_component(value: &str) -> String {
+    value
+        .bytes()
+        .map(|byte| {
+            if byte.is_ascii_alphanumeric() || b"-_.~".contains(&byte) {
+                (byte as char).to_string()
+            } else {
+                format!("%{byte:02X}")
+            }
+        })
+        .collect()
+}
+
 fn internal_error<E: std::fmt::Display>(error: E) -> (StatusCode, String) {
     (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
 }
@@ -254,6 +352,7 @@ async fn main() {
     };
     let app = Router::new()
         .route("/api/tracks", get(tracks))
+        .route("/api/artwork", get(artwork))
         .nest_service("/media", ServeDir::new(&music_path))
         .fallback_service(ServeDir::new(web_root).append_index_html_on_directories(true))
         .with_state(state);
