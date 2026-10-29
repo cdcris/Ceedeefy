@@ -31,11 +31,27 @@ cargo run --release
 
 Then open `http://<this-PC's-LAN-IP>:3000` on the phone. Allow Rust/Ceedeefy through Windows Firewall on a private network if prompted.
 
-On Linux/macOS:
+On Linux/macOS, set `MUSIC_DIR` to the mounted music folder:
 
 ```sh
 MUSIC_DIR=/mnt/music cargo run --release
 ```
+
+### Raspberry Pi
+
+After installing Rust and copying or cloning the project onto the Pi, run these commands from a terminal. Update `MUSIC_DIR` if your drive is mounted somewhere else:
+
+```sh
+cd ~/Desktop/Ceedeefy
+export MUSIC_DIR="/media/shared/shared/Ceedeefy/music"
+export BIND_ADDR="0.0.0.0:3000"
+
+printf 'MUSIC_DIR=%s\nBIND_ADDR=%s\n' "$MUSIC_DIR" "$BIND_ADDR"
+ls "$MUSIC_DIR"
+cargo run --release
+```
+
+The `ls` command should list your music files. Keep the terminal open while the server is running. On the Pi, run `hostname -I` to find its LAN IP, then open `http://<pi-ip-address>:3000` from another device on the same network.
 
 Open http://127.0.0.1:3000. To access it from other devices on your LAN, set `BIND_ADDR=0.0.0.0:3000` and open that machine's LAN address. The server has no authentication yet, so keep it on a trusted network.
 
