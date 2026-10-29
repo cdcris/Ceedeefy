@@ -32,6 +32,7 @@ struct Track {
     format: String,
     bitrate_kbps: Option<u32>,
     artwork_url: String,
+    created_at: Option<u64>,
     duration: Option<u64>,
     src: String,
 }
@@ -139,6 +140,12 @@ fn scan_library(root: &Path) -> Result<Vec<Track>, (StatusCode, String)> {
             None
         };
         let artwork_url = format!("/api/artwork?track={}", encode_query_component(&id));
+        let created_at = path
+            .metadata()
+            .ok()
+            .and_then(|metadata| metadata.created().ok())
+            .and_then(|created| created.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|duration| duration.as_secs());
         tracks.push(Track {
             src: format!("/media/{}", encode_path(&id)),
             id,
@@ -148,6 +155,7 @@ fn scan_library(root: &Path) -> Result<Vec<Track>, (StatusCode, String)> {
             format,
             bitrate_kbps,
             artwork_url,
+            created_at,
             duration: None,
         });
     }

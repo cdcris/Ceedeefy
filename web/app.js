@@ -1,12 +1,14 @@
 const audio = document.querySelector('#audio');
 const list = document.querySelector('#track-list');
 const filter = document.querySelector('#filter');
+const sortSelect = document.querySelector('#sort-select');
 const playButton = document.querySelector('#toggle-play');
 let tracks = [];
 let visibleTracks = [];
 let currentIndex = -1;
 let shuffle = false;
 let repeat = false;
+let sortMode = 'artist';
 const playlistStorageKey = 'ceedeefy.playlists.v1';
 let playlists = loadPlaylists();
 let activeQueue = [];
@@ -45,24 +47,74 @@ function renderPlaylists() {
   }));
 }
 
+function renderArtists() {
+  const groups = new Map();
+  tracks.forEach((track, index) => {
+    const artist = track.artist.trim() || 'Unknown artist';
+    if (!groups.has(artist)) groups.set(artist, []);
+    groups.get(artist).push({track, index});
+  });
+  const artists = [...groups.entries()]
+    .filter(([, songs]) => songs.length > 2)
+    .sort(([a], [b]) => trackCollator.compare(a, b));
+  const container = document.querySelector('#artist-list');
+  document.querySelector('#artist-count').textContent = artists.length;
+  container.innerHTML = artists.map(([artist, songs]) => {
+    const active = viewingArtist === artist;
+    return `<section class="artist-item ${active ? 'active' : ''}">
+      <div class="artist-row">
+      <button class="artist-select" data-artist="${escapeHtml(artist)}" title="Show ${escapeHtml(artist)} songs">
+        <span class="artist-avatar" aria-hidden="true">${escapeHtml(artist.charAt(0).toUpperCase())}</span>
+        <span class="artist-name">${escapeHtml(artist)}</span><small>${songs.length}</small>
+      </button>
+      <button class="artist-play" data-artist="${escapeHtml(artist)}" aria-label="Play ${escapeHtml(artist)}" title="Play artist">▶</button>
+      </div>
+    </section>`;
+  }).join('');
+  container.querySelectorAll('.artist-select').forEach(button => button.addEventListener('click', () => showArtist(button.dataset.artist)));
+  container.querySelectorAll('.artist-play').forEach(button => button.addEventListener('click', () => playArtist(button.dataset.artist)));
+}
+
 let viewingPlaylist = null;
 let activeQueuePlaylist = null;
+let viewingArtist = null;
 
 function showAllSongs() {
-  viewingPlaylist = null; filter.value = ''; visibleTracks = tracks;
+  viewingPlaylist = null; viewingArtist = null; filter.value = ''; visibleTracks = sortTracks(tracks);
+  document.querySelector('.songs-section h2').firstChild.textContent = 'All songs ';
   document.querySelector('#all-songs').classList.add('active'); renderPlaylists(); renderTracks();
+  renderArtists();
 }
 
 function showPlaylist(playlist) {
   if (!playlist) return;
-  viewingPlaylist = playlist.id; document.querySelector('#all-songs').classList.remove('active');
+  viewingPlaylist = playlist.id; viewingArtist = null; document.querySelector('#all-songs').classList.remove('active'); renderArtists();
   renderPlaylists();
-  const ids = new Set(playlist.tracks); visibleTracks = tracks.filter(track => ids.has(track.id));
+  const ids = new Set(playlist.tracks); visibleTracks = sortTracks(tracks.filter(track => ids.has(track.id)));
   document.querySelector('#track-count').textContent = visibleTracks.length;
   document.querySelector('.songs-section h2').firstChild.textContent = `${playlist.name} `;
   document.querySelector('#empty-library').hidden = true;
   if (!visibleTracks.length) list.innerHTML = '<tr><td colspan="6" class="empty-state">This playlist is empty. Add songs with the + button.</td></tr>';
   else renderTracks();
+}
+
+function showArtist(artist) {
+  viewingPlaylist = null; viewingArtist = artist; filter.value = '';
+  document.querySelector('#all-songs').classList.remove('active');
+  const matching = tracks.filter(track => (track.artist.trim() || 'Unknown artist') === artist);
+  visibleTracks = sortTracks(matching);
+  document.querySelector('.songs-section h2').firstChild.textContent = `${artist} `;
+  document.querySelector('#empty-library').hidden = true;
+  renderArtists(); renderTracks();
+}
+
+function playArtist(artist) {
+  activeQueue = tracks.map((track, index) => (track.artist.trim() || 'Unknown artist') === artist ? index : -1).filter(index => index >= 0);
+  activeQueuePlaylist = null;
+  if (!activeQueue.length) return;
+  showArtist(artist);
+  queuePosition = 0;
+  playTrack(activeQueue[0]);
 }
 
 document.querySelector('#create-playlist').addEventListener('click', () => {
@@ -87,17 +139,29 @@ const palette = [['#e1d1a6','#897252'],['#d6d88c','#677849'],['#d3a991','#795b4d
 const formatTime = seconds => Number.isFinite(seconds) ? `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` : '0:00';
 const coverStyle = index => { const [a,b] = palette[index % palette.length]; return `background:linear-gradient(145deg,${a},${b})`; };
 const escapeHtml = text => String(text).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const trackCollator = new Intl.Collator(undefined, {numeric:true, sensitivity:'base'});
+
+function sortTracks(items) {
+  return [...items].sort((a, b) => {
+    if (sortMode === 'title') return trackCollator.compare(a.title, b.title) || trackCollator.compare(a.artist, b.artist);
+    if (sortMode === 'created') {
+      const dateDifference = (Number.isFinite(b.created_at) ? b.created_at : -1) - (Number.isFinite(a.created_at) ? a.created_at : -1);
+      if (dateDifference) return dateDifference;
+    }
+    return trackCollator.compare(a.artist, b.artist) || trackCollator.compare(a.title, b.title);
+  });
+}
 
 async function loadLibrary() {
   document.querySelector('#connection-status').textContent = 'Connecting to library';
   try {
     const response = await fetch('/api/tracks', {cache:'no-store'});
     if (!response.ok) throw new Error(`Library returned ${response.status}`);
-    tracks = await response.json(); visibleTracks = tracks;
+    tracks = await response.json(); visibleTracks = sortTracks(tracks);
     document.querySelector('#connection-status').textContent = `${tracks.length} songs ready`;
     document.querySelector('.status-dot').classList.remove('offline');
     document.querySelector('#sidebar-count').textContent = `${tracks.length} songs`;
-    renderTracks();
+    renderTracks(); renderArtists();
   } catch (error) {
     document.querySelector('#connection-status').textContent = 'Library unavailable';
     document.querySelector('.status-dot').classList.add('offline');
@@ -176,9 +240,10 @@ function playPlaylist(playlist) {
   queuePosition = 0; playTrack(activeQueue[0]);
 }
 
-filter.addEventListener('input', () => { viewingPlaylist = null; document.querySelector('#all-songs').classList.add('active'); document.querySelector('.songs-section h2').firstChild.textContent='All songs '; const q = filter.value.trim().toLowerCase(); visibleTracks = tracks.filter(t => `${t.title} ${t.artist} ${t.album}`.toLowerCase().includes(q)); renderTracks(); });
+filter.addEventListener('input', () => { viewingPlaylist = null; viewingArtist = null; document.querySelector('#all-songs').classList.add('active'); document.querySelector('.songs-section h2').firstChild.textContent='All songs '; const q = filter.value.trim().toLowerCase(); visibleTracks = sortTracks(tracks.filter(t => `${t.title} ${t.artist} ${t.album}`.toLowerCase().includes(q))); renderArtists(); renderTracks(); });
+sortSelect.addEventListener('change', () => { sortMode = sortSelect.value; visibleTracks = sortTracks(visibleTracks); renderTracks(); });
 document.querySelector('#play-all').addEventListener('click', () => playTrack(currentIndex >= 0 ? currentIndex : 0));
-document.querySelector('#all-songs').addEventListener('click', () => { showAllSongs(); document.querySelector('.songs-section h2').firstChild.textContent='All songs '; });
+document.querySelector('#all-songs').addEventListener('click', showAllSongs);
 document.querySelector('#refresh').addEventListener('click', loadLibrary);
 document.querySelector('#search-link').addEventListener('click', () => setTimeout(() => filter.focus(), 0));
 document.querySelector('#toggle-play').addEventListener('click', async () => {
