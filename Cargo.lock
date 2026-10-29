@@ -92,6 +92,7 @@ dependencies = [
  "lofty",
  "mime_guess",
  "serde",
+ "serde_json",
  "tokio",
  "tower-http",
  "walkdir",

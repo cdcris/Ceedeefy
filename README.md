@@ -40,3 +40,5 @@ MUSIC_DIR=/mnt/music cargo run --release
 Open http://127.0.0.1:3000. To access it from other devices on your LAN, set `BIND_ADDR=0.0.0.0:3000` and open that machine's LAN address. The server has no authentication yet, so keep it on a trusted network.
 
 The library is rescanned when the app starts or when the refresh button is clicked.
+
+Playlists are stored by the server in `playlists.json` in the working directory, so every device connected to the same Ceedeefy server shares them. Set `PLAYLISTS_FILE` to choose a different persistent file location. Existing browser-local playlists are copied to the server the first time a new server playlist store is initialized. Open clients check for playlist changes every 10 seconds.

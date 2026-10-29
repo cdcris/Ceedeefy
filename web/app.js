@@ -9,21 +9,78 @@ let currentIndex = -1;
 let shuffle = false;
 let repeat = false;
 let sortMode = 'artist';
-const playlistStorageKey = 'ceedeefy.playlists.v1';
+const legacyPlaylistStorageKey = 'ceedeefy.playlists.v1';
 const playbackStorageKey = 'ceedeefy.playback.v1';
 let lastPlaybackSave = 0;
-let playlists = loadPlaylists();
+let playlists = [];
+let playlistSaveQueue = Promise.resolve();
+let playlistSavePending = 0;
 let activeQueue = [];
 let queuePosition = -1;
 
-function loadPlaylists() {
+function loadLegacyPlaylists() {
   try {
-    const saved = JSON.parse(localStorage.getItem(playlistStorageKey) || '[]');
+    const saved = JSON.parse(localStorage.getItem(legacyPlaylistStorageKey) || '[]');
     return Array.isArray(saved) ? saved.filter(p => p && typeof p.name === 'string' && Array.isArray(p.tracks)).map(p => ({id:String(p.id), name:p.name, tracks:p.tracks.filter(id => typeof id === 'string')})) : [];
   } catch { return []; }
 }
 
-function savePlaylists() { localStorage.setItem(playlistStorageKey, JSON.stringify(playlists)); }
+function savePlaylists() {
+  const snapshot = JSON.stringify(playlists);
+  try { localStorage.setItem(legacyPlaylistStorageKey, snapshot); } catch { /* Server storage remains authoritative. */ }
+  playlistSavePending++;
+  playlistSaveQueue = playlistSaveQueue.then(async () => {
+    const response = await fetch('/api/playlists', {method:'PUT', headers:{'Content-Type':'application/json'}, body:snapshot});
+    if (!response.ok) throw new Error(`Playlist server returned ${response.status}`);
+    try { localStorage.removeItem(legacyPlaylistStorageKey); } catch { /* Ignore unavailable browser storage. */ }
+  }).catch(error => {
+    document.querySelector('#connection-status').textContent = 'Playlist changes could not be synced';
+    console.error('Playlist sync failed:', error);
+  }).finally(() => { playlistSavePending--; });
+  return playlistSaveQueue;
+}
+
+async function refreshSharedPlaylists(initial = false) {
+  if (playlistSavePending) return;
+  try {
+    const response = await fetch('/api/playlists', {cache:'no-store'});
+    if (!response.ok) throw new Error(`Playlist server returned ${response.status}`);
+    const saved = await response.json();
+    if (saved === null && !initial) return;
+    if (initial) {
+      const legacy = loadLegacyPlaylists();
+      if (legacy.length) {
+        const knownIds = new Set((Array.isArray(saved) ? saved : []).map(playlist => playlist.id));
+        playlists = [...(Array.isArray(saved) ? saved : []), ...legacy.filter(playlist => !knownIds.has(playlist.id))];
+        renderPlaylists();
+        await savePlaylists();
+        return;
+      }
+    }
+    if (saved === null) {
+      playlists = [];
+      renderPlaylists();
+      await savePlaylists();
+      return;
+    }
+    const next = Array.isArray(saved) ? saved : [];
+    if (JSON.stringify(next) !== JSON.stringify(playlists)) {
+      playlists = next;
+      renderPlaylists();
+      if (viewingPlaylist) {
+        const active = playlists.find(playlist => playlist.id === viewingPlaylist);
+        if (active) showPlaylist(active); else showAllSongs();
+      }
+    }
+    try { localStorage.removeItem(legacyPlaylistStorageKey); } catch { /* Ignore unavailable browser storage. */ }
+  } catch (error) {
+    if (initial) {
+      playlists = loadLegacyPlaylists();
+      renderPlaylists();
+    }
+    console.error('Could not load shared playlists:', error);
+  }
+}
 
 function renderPlaylists() {
   const container = document.querySelector('#playlist-list');
@@ -340,3 +397,7 @@ document.addEventListener('keydown', event => {
 });
 renderPlaylists();
 loadLibrary();
+refreshSharedPlaylists(true);
+window.setInterval(() => {
+  if (!document.hidden) refreshSharedPlaylists();
+}, 10000);

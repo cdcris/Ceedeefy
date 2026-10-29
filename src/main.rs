@@ -10,10 +10,10 @@ use lofty::{file::TaggedFileExt, picture::PictureType, probe::Probe};
 use serde::{Deserialize, Serialize};
 use std::{
     env,
-    fs::File,
+    fs::{self, File},
     io::{Read, Seek, SeekFrom},
     path::{Component, Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 use tower_http::services::ServeDir;
 use walkdir::WalkDir;
@@ -21,6 +21,15 @@ use walkdir::WalkDir;
 #[derive(Clone)]
 struct AppState {
     music_root: Arc<PathBuf>,
+    playlist_file: Arc<PathBuf>,
+    playlists: Arc<Mutex<Option<Vec<Playlist>>>>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+struct Playlist {
+    id: String,
+    name: String,
+    tracks: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -53,6 +62,46 @@ async fn tracks(State(state): State<AppState>) -> Result<Json<Vec<Track>>, (Stat
         .await
         .map_err(internal_error)??;
     Ok(Json(items))
+}
+
+async fn get_playlists(
+    State(state): State<AppState>,
+) -> Result<Json<Option<Vec<Playlist>>>, (StatusCode, String)> {
+    let playlists = state.playlists.lock().map_err(internal_error)?.clone();
+    Ok(Json(playlists))
+}
+
+async fn put_playlists(
+    State(state): State<AppState>,
+    Json(playlists): Json<Vec<Playlist>>,
+) -> Result<Json<Vec<Playlist>>, (StatusCode, String)> {
+    if playlists.iter().any(|playlist| {
+        playlist.id.trim().is_empty()
+            || playlist.name.trim().is_empty()
+            || playlist.id.len() > 128
+            || playlist.name.len() > 200
+    }) {
+        return Err((StatusCode::BAD_REQUEST, "Invalid playlist data".to_owned()));
+    }
+
+    let playlist_file = state.playlist_file.clone();
+    let shared_playlists = state.playlists.clone();
+    let saved = tokio::task::spawn_blocking(move || {
+        let mut current = shared_playlists.lock().map_err(internal_error)?;
+        if let Some(parent) = playlist_file
+            .parent()
+            .filter(|path| !path.as_os_str().is_empty())
+        {
+            fs::create_dir_all(parent).map_err(internal_error)?;
+        }
+        let serialized = serde_json::to_vec(&playlists).map_err(internal_error)?;
+        fs::write(playlist_file.as_path(), serialized).map_err(internal_error)?;
+        *current = Some(playlists.clone());
+        Ok::<_, (StatusCode, String)>(playlists)
+    })
+    .await
+    .map_err(internal_error)??;
+    Ok(Json(saved))
 }
 
 async fn artwork(
@@ -376,11 +425,24 @@ async fn main() {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(r"C:\Users\jocel\Music"));
     let web_root = PathBuf::from("./web");
+    let playlist_file = env::var_os("PLAYLISTS_FILE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("playlists.json"));
+    let playlists = match fs::read(&playlist_file) {
+        Ok(data) => Some(serde_json::from_slice(&data).unwrap_or_else(|error| {
+            panic!("could not parse {}: {error}", playlist_file.display())
+        })),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => panic!("could not read {}: {error}", playlist_file.display()),
+    };
     let state = AppState {
         music_root: Arc::new(music_path.clone()),
+        playlist_file: Arc::new(playlist_file),
+        playlists: Arc::new(Mutex::new(playlists)),
     };
     let app = Router::new()
         .route("/api/tracks", get(tracks))
+        .route("/api/playlists", get(get_playlists).put(put_playlists))
         .route("/api/artwork", get(artwork))
         .nest_service("/media", ServeDir::new(&music_path))
         .fallback_service(ServeDir::new(web_root).append_index_html_on_directories(true))
