@@ -10,6 +10,8 @@ let shuffle = false;
 let repeat = false;
 let sortMode = 'artist';
 const playlistStorageKey = 'ceedeefy.playlists.v1';
+const playbackStorageKey = 'ceedeefy.playback.v1';
+let lastPlaybackSave = 0;
 let playlists = loadPlaylists();
 let activeQueue = [];
 let queuePosition = -1;
@@ -162,6 +164,7 @@ async function loadLibrary() {
     document.querySelector('.status-dot').classList.remove('offline');
     document.querySelector('#sidebar-count').textContent = `${tracks.length} songs`;
     renderTracks(); renderArtists();
+    await restorePlayback();
   } catch (error) {
     document.querySelector('#connection-status').textContent = 'Library unavailable';
     document.querySelector('.status-dot').classList.add('offline');
@@ -178,7 +181,7 @@ function renderTracks() {
   list.innerHTML = visibleTracks.map((track, index) => {
     const originalIndex = tracks.indexOf(track), active = originalIndex === currentIndex;
     const inPlaylist = viewingPlaylist !== null;
-    const coverImage = track.artwork_url ? `<img class="cover-image" src="${escapeHtml(track.artwork_url)}" alt="" loading="lazy" />` : '';
+    const coverImage = track.artwork_url ? `<img class="cover-image" src="${escapeHtml(track.artwork_url)}" alt="" loading="lazy" onerror="this.remove()" />` : '';
     return `<tr class="track-row ${active?'selected':''}" data-index="${originalIndex}" tabindex="0" aria-label="Play ${escapeHtml(track.title)} by ${escapeHtml(track.artist)}">
       <td class="song-number">${active && !audio.paused ? '♫' : String(index+1).padStart(2,'0')}</td>
       <td><div class="song-title-cell"><span class="mini-cover" style="${coverStyle(originalIndex)}">♫${coverImage}</span><span class="song-copy"><span class="song-title">${escapeHtml(track.title)}</span><span class="song-artist">${escapeHtml(track.artist)}</span></span><button class="add-track" aria-label="${inPlaylist ? 'Remove' : 'Add'} ${escapeHtml(track.title)} ${inPlaylist ? 'from' : 'to'} playlist" title="${inPlaylist ? 'Remove from playlist' : 'Add to playlist'}">${inPlaylist ? '−' : '＋'}</button></div></td>
@@ -219,6 +222,54 @@ async function playTrack(index) {
   }
   renderTracks();
   try { await audio.play(); } catch (error) { document.querySelector('#connection-status').textContent = 'Couldn’t play this song'; console.error('Playback failed:', error); }
+}
+
+function savePlaybackState(force = false) {
+  if (currentIndex < 0 || !tracks[currentIndex]) return;
+  const now = Date.now();
+  if (!force && now - lastPlaybackSave < 1000 && !audio.paused) return;
+  lastPlaybackSave = now;
+  try {
+    localStorage.setItem(playbackStorageKey, JSON.stringify({
+      trackId: tracks[currentIndex].id,
+      src: tracks[currentIndex].src,
+      time: Number.isFinite(audio.currentTime) ? audio.currentTime : 0,
+      wasPlaying: !audio.paused
+    }));
+  } catch (error) { console.warn('Could not save playback position:', error); }
+}
+
+async function restorePlayback() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(playbackStorageKey) || 'null'); } catch { return; }
+  if (!saved || typeof saved !== 'object') return;
+  const index = tracks.findIndex(track => (saved.trackId && track.id === saved.trackId) || (!saved.trackId && track.src === saved.src));
+  if (index < 0) return;
+  const track = tracks[index];
+  currentIndex = index;
+  audio.src = track.src;
+  document.querySelector('#current-title').textContent = track.title;
+  document.querySelector('#current-artist').textContent = track.artist;
+  const currentArt = document.querySelector('#current-art');
+  currentArt.style = coverStyle(index);
+  currentArt.textContent = '♫';
+  if (track.artwork_url) {
+    const image = document.createElement('img');
+    image.className = 'cover-image'; image.alt = `${track.album} album art`; image.src = track.artwork_url;
+    image.addEventListener('error', () => image.remove(), {once:true});
+    currentArt.append(image);
+  }
+  renderTracks();
+  await new Promise(resolve => {
+    if (audio.readyState >= 1) return resolve();
+    audio.addEventListener('loadedmetadata', resolve, {once:true});
+    audio.addEventListener('error', resolve, {once:true});
+    audio.load();
+  });
+  if (Number.isFinite(saved.time) && Number.isFinite(audio.duration)) audio.currentTime = Math.min(Math.max(0, saved.time), audio.duration);
+  if (saved.wasPlaying) {
+    try { await audio.play(); } catch { /* Browser autoplay policy may require the user to press Play. */ }
+  }
 }
 
 function stepTrack(direction) {
@@ -276,11 +327,12 @@ document.querySelector('#repeat').addEventListener('click', event => { repeat=!r
 document.querySelector('#volume').addEventListener('input', event => { audio.volume=Number(event.target.value); });
 document.querySelector('#seek').addEventListener('input', event => { if(Number.isFinite(audio.duration)) audio.currentTime=(Number(event.target.value)/1000)*audio.duration; });
 audio.volume=.8;
-audio.addEventListener('play', () => { document.querySelector('.welcome-art').classList.add('is-playing'); playButton.textContent='Ⅱ'; playButton.setAttribute('aria-label','Pause'); renderTracks(); });
-audio.addEventListener('pause', () => { document.querySelector('.welcome-art').classList.remove('is-playing'); playButton.textContent='▶'; playButton.setAttribute('aria-label','Play'); renderTracks(); });
+audio.addEventListener('play', () => { document.querySelector('.welcome-art').classList.add('is-playing'); playButton.textContent='Ⅱ'; playButton.setAttribute('aria-label','Pause'); renderTracks(); savePlaybackState(); });
+audio.addEventListener('pause', () => { document.querySelector('.welcome-art').classList.remove('is-playing'); playButton.textContent='▶'; playButton.setAttribute('aria-label','Play'); renderTracks(); savePlaybackState(true); });
 audio.addEventListener('loadedmetadata', () => { if(tracks[currentIndex]) tracks[currentIndex].duration=audio.duration; document.querySelector('#remaining').textContent=formatTime(audio.duration); renderTracks(); });
-audio.addEventListener('timeupdate', () => { document.querySelector('#elapsed').textContent=formatTime(audio.currentTime); document.querySelector('#remaining').textContent=formatTime(audio.duration); document.querySelector('#seek').value=Number.isFinite(audio.duration)&&audio.duration>0?String(Math.round(audio.currentTime/audio.duration*1000)):'0'; });
+audio.addEventListener('timeupdate', () => { document.querySelector('#elapsed').textContent=formatTime(audio.currentTime); document.querySelector('#remaining').textContent=formatTime(audio.duration); document.querySelector('#seek').value=Number.isFinite(audio.duration)&&audio.duration>0?String(Math.round(audio.currentTime/audio.duration*1000)):'0'; savePlaybackState(); });
 audio.addEventListener('ended', () => { if(!repeat) stepTrack(1); });
+window.addEventListener('pagehide', () => savePlaybackState(true));
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && document.body.classList.contains('mobile-menu-open')) setMobileMenuOpen(false);
   if(event.key==='/'&&document.activeElement!==filter){event.preventDefault();filter.focus();}

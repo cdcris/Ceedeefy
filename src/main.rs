@@ -31,7 +31,7 @@ struct Track {
     album: String,
     format: String,
     bitrate_kbps: Option<u32>,
-    artwork_url: String,
+    artwork_url: Option<String>,
     created_at: Option<u64>,
     duration: Option<u64>,
     src: String,
@@ -139,7 +139,8 @@ fn scan_library(root: &Path) -> Result<Vec<Track>, (StatusCode, String)> {
         } else {
             None
         };
-        let artwork_url = format!("/api/artwork?track={}", encode_query_component(&id));
+        let artwork_url = has_embedded_artwork(path)
+            .then(|| format!("/api/artwork?track={}", encode_query_component(&id)));
         let created_at = path
             .metadata()
             .ok()
@@ -191,6 +192,26 @@ fn embedded_artwork(path: &Path) -> Option<EmbeddedArtwork> {
         bytes: picture.data().to_vec(),
         mime_type,
     })
+}
+
+fn has_embedded_artwork(path: &Path) -> bool {
+    let Some(tagged_file) = Probe::open(path).ok().and_then(|probe| probe.read().ok()) else {
+        return false;
+    };
+    let Some(tag) = tagged_file.primary_tag() else {
+        return false;
+    };
+    let picture = tag
+        .pictures()
+        .iter()
+        .find(|picture| picture.pic_type() == PictureType::CoverFront)
+        .or_else(|| tag.pictures().first());
+    let Some(picture) = picture else { return false; };
+    let supported_type = matches!(
+        picture.mime_type().map(|mime| mime.as_str()),
+        Some("image/jpeg" | "image/png" | "image/gif" | "image/bmp" | "image/tiff")
+    );
+    supported_type && !picture.data().is_empty() && picture.data().len() <= 20 * 1024 * 1024
 }
 
 fn mp3_average_bitrate(path: &Path) -> Option<u32> {
