@@ -1,0 +1,12 @@
+[package]
+name = "ceedeefy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8.9"
+mime_guess = "2.0"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "net"] }
+tower-http = { version = "0.7.1", features = ["fs"] }
+walkdir = "2.5"

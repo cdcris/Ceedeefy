@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#10110f" />
+  <title>Ceedeefy — your music, your home</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#home" aria-label="Ceedeefy home"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><span>ceedeefy</span></a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a class="nav-link active" href="#home"><span class="nav-icon">⌂</span>Home</a>
+        <a class="nav-link" href="#search" id="search-link"><span class="nav-icon">⌕</span>Search</a>
+      </nav>
+      <div class="library-heading"><span>Your library</span><button id="refresh" class="icon-button" aria-label="Refresh library" title="Refresh library">↻</button></div>
+      <button class="library-card active" id="all-songs"><span class="library-cover">♫</span><span><strong>All songs</strong><small id="sidebar-count">Your collection</small></span></button>
+      <div class="sidebar-note"><span class="note-spark">✳</span><p>Your music, right where it belongs.</p><small>Private listening from your own library.</small></div>
+      <div class="sidebar-footer"><span class="status-dot"></span><span id="connection-status">Connecting to library</span></div>
+    </aside>
+
+    <main class="main-content" id="home">
+      <header class="topbar"><div class="history-buttons"><button class="round-button" aria-label="Go back" onclick="history.back()">‹</button><button class="round-button" aria-label="Go forward" onclick="history.forward()">›</button></div><div class="profile-pill"><span class="profile-avatar">C</span><span>My space</span><span class="chevron">⌄</span></div></header>
+      <section class="welcome-row"><div><p class="eyebrow">YOUR MUSIC, YOUR WAY</p><h1>A little more <em>you.</em></h1><p class="welcome-copy">Every favorite, all in one place.</p></div><div class="welcome-art" aria-hidden="true"><div class="art-disc"><div></div></div><span class="art-star star-one">✳</span><span class="art-star star-two">✦</span></div></section>
+      <section class="quick-pick"><button class="quick-card" id="play-all"><span class="quick-cover">♫</span><span>All songs</span><span class="quick-play">▶</span></button></section>
+      <section class="songs-section" id="search">
+        <div class="section-heading"><div><p class="eyebrow">IN YOUR LIBRARY</p><h2>All songs <span class="count-badge" id="track-count">—</span></h2></div><label class="search-box"><span>⌕</span><input id="filter" type="search" placeholder="Find a song" autocomplete="off" /><kbd>/</kbd></label></div>
+        <div class="table-wrap"><table><thead><tr><th class="number-col">#</th><th>Title</th><th>Album</th><th class="duration-col">♫</th></tr></thead><tbody id="track-list"><tr><td colspan="4" class="empty-state"><span class="loading-ring"></span><br />Finding your music…</td></tr></tbody></table></div>
+        <div id="empty-library" class="empty-library" hidden><span>♫</span><h3>No songs found yet</h3><p>Set <code>MUSIC_DIR</code> to your Samba share and refresh the library.</p></div>
+      </section>
+      <footer class="page-footer">Made for the music you already love <span>✳</span></footer>
+    </main>
+  </div>
+
+  <footer class="player-bar">
+    <div class="now-playing"><div class="track-art" id="current-art">♫</div><div class="track-meta"><strong id="current-title">Pick a song</strong><span id="current-artist">Your library is waiting</span></div><button class="like-button" aria-label="Like this song">♡</button></div>
+    <div class="player-center"><div class="player-controls"><button id="shuffle" class="control-button subtle" aria-label="Shuffle">⤨</button><button id="previous" class="control-button" aria-label="Previous">◀|</button><button id="toggle-play" class="play-button" aria-label="Play">▶</button><button id="next" class="control-button" aria-label="Next">|▶</button><button id="repeat" class="control-button subtle" aria-label="Repeat">↻</button></div><div class="timeline"><span id="elapsed">0:00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Seek" /><span id="remaining">0:00</span></div></div>
+    <div class="player-extra"><span class="speaker-icon">◖</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Volume" /></div>
+    <audio id="audio"></audio>
+  </footer>
+  <script src="/app.js"></script>
+</body>
+</html>
