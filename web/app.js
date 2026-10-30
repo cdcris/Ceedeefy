@@ -17,6 +17,7 @@ let playlistSaveQueue = Promise.resolve();
 let playlistSavePending = 0;
 let activeQueue = [];
 let queuePosition = -1;
+let suppressNextTrackClick = false;
 
 function setQueueFromVisibleTracks() {
   activeQueue = visibleTracks.map(track => tracks.indexOf(track)).filter(index => index >= 0);
@@ -156,7 +157,9 @@ function showPlaylist(playlist) {
   if (!playlist) return;
   viewingPlaylist = playlist.id; viewingArtist = null; document.querySelector('#all-songs').classList.remove('active'); renderArtists();
   renderPlaylists();
-  const ids = new Set(playlist.tracks); visibleTracks = sortTracks(tracks.filter(track => ids.has(track.id)));
+  const ids = new Set(playlist.tracks);
+  const byId = new Map(tracks.map(track => [track.id, track]));
+  visibleTracks = playlist.tracks.map(id => byId.get(id)).filter(Boolean);
   setQueueFromVisibleTracks();
   document.querySelector('#track-count').textContent = visibleTracks.length;
   document.querySelector('.songs-section h2').firstChild.textContent = `${playlist.name} `;
@@ -249,14 +252,15 @@ function renderTracks() {
     const originalIndex = tracks.indexOf(track), active = originalIndex === currentIndex;
     const inPlaylist = viewingPlaylist !== null;
     const coverImage = track.artwork_url ? `<img class="cover-image" src="${escapeHtml(track.artwork_url)}" alt="" loading="lazy" onerror="this.remove()" />` : '';
-    return `<tr class="track-row ${active?'selected':''}" data-index="${originalIndex}" tabindex="0" aria-label="Play ${escapeHtml(track.title)} by ${escapeHtml(track.artist)}">
-      <td class="song-number">${active && !audio.paused ? '♫' : String(index+1).padStart(2,'0')}</td>
+    return `<tr class="track-row ${inPlaylist?'playlist-track-row':''} ${active?'selected':''}" data-index="${originalIndex}" tabindex="0" aria-label="Play ${escapeHtml(track.title)} by ${escapeHtml(track.artist)}">
+      <td class="song-number">${inPlaylist ? '<span class="drag-grip" aria-hidden="true">⠿</span>' : ''}${active && !audio.paused ? '♫' : String(index+1).padStart(2,'0')}</td>
       <td><div class="song-title-cell"><span class="mini-cover" style="${coverStyle(originalIndex)}">♫${coverImage}</span><span class="song-copy"><span class="song-title">${escapeHtml(track.title)}</span><span class="song-artist">${escapeHtml(track.artist)}</span></span><button class="add-track" aria-label="${inPlaylist ? 'Remove' : 'Add'} ${escapeHtml(track.title)} ${inPlaylist ? 'from' : 'to'} playlist" title="${inPlaylist ? 'Remove from playlist' : 'Add to playlist'}">${inPlaylist ? '−' : '＋'}</button></div></td>
       <td class="album-cell">${escapeHtml(track.album)}</td><td class="quality-cell">${track.bitrate_kbps ? `${track.bitrate_kbps} kbps` : '—'}</td><td class="duration-cell">${formatTime(track.duration)}</td></tr>`;
   }).join('');
   list.querySelectorAll('.cover-image').forEach(image => image.addEventListener('error', () => image.remove(), {once:true}));
   list.querySelectorAll('.track-row').forEach(row => {
     const selectTrack = () => {
+      if (suppressNextTrackClick) { suppressNextTrackClick = false; return; }
       const index = Number(row.dataset.index);
       if (!activeQueue.includes(index)) setQueueFromVisibleTracks();
       queuePosition = activeQueue.indexOf(index);
@@ -264,6 +268,7 @@ function renderTracks() {
     };
     row.addEventListener('click', selectTrack);
     row.addEventListener('keydown', event => { if (event.key === 'Enter') selectTrack(); });
+    if (viewingPlaylist) enablePlaylistReorder(row);
     row.querySelector('.add-track').addEventListener('click', event => {
       event.stopPropagation();
       const track = tracks[Number(row.dataset.index)];
@@ -273,6 +278,65 @@ function renderTracks() {
       } else addToPlaylist(track);
     });
   });
+}
+
+function enablePlaylistReorder(row) {
+  let holdTimer;
+  let dragging = false;
+  let moved = false;
+  let startY = 0;
+  let pointerId = null;
+  row.addEventListener('pointerdown', event => {
+    if (event.target.closest('button')) return;
+    if (event.pointerType !== 'mouse' && !event.target.closest('.drag-grip')) return;
+    startY = event.clientY;
+    pointerId = event.pointerId;
+    moved = false;
+    holdTimer = setTimeout(() => {
+      dragging = true;
+      row.classList.add('dragging');
+      try { row.setPointerCapture(pointerId); } catch { /* Document listeners still track the drag. */ }
+    }, 250);
+  });
+  document.addEventListener('pointermove', event => {
+    if (event.pointerId !== pointerId) return;
+    if (!dragging) {
+      if (Math.abs(event.clientY - startY) > 14) clearTimeout(holdTimer);
+      return;
+    }
+    const otherRows = [...list.querySelectorAll('.track-row')].filter(item => item !== row);
+    const beforeRow = otherRows.find(item => {
+      const bounds = item.getBoundingClientRect();
+      return event.clientY < bounds.top + bounds.height / 2;
+    });
+    const oldPosition = [...list.querySelectorAll('.track-row')].indexOf(row);
+    if (beforeRow) beforeRow.before(row); else list.append(row);
+    const newPosition = [...list.querySelectorAll('.track-row')].indexOf(row);
+    if (newPosition !== oldPosition) moved = true;
+  });
+  const finish = () => {
+    clearTimeout(holdTimer);
+    if (!dragging) { pointerId = null; return; }
+    dragging = false;
+    pointerId = null;
+    row.classList.remove('dragging');
+    if (moved) {
+      const playlist = playlists.find(item => item.id === viewingPlaylist);
+      if (playlist) {
+        playlist.tracks = [...list.querySelectorAll('.track-row')].map(item => tracks[Number(item.dataset.index)].id);
+        visibleTracks = playlist.tracks.map(id => tracks.find(track => track.id === id)).filter(Boolean);
+        setQueueFromVisibleTracks();
+        savePlaylists();
+        renderPlaylists();
+        suppressNextTrackClick = true;
+        setTimeout(() => { suppressNextTrackClick = false; }, 500);
+        renderTracks();
+      }
+    }
+  };
+  document.addEventListener('pointerup', event => { if (event.pointerId === pointerId) finish(); });
+  document.addEventListener('pointercancel', event => { if (event.pointerId === pointerId) finish(); });
+  row.addEventListener('click', event => { if (moved) { event.stopImmediatePropagation(); moved = false; } }, true);
 }
 
 async function playTrack(index) {
