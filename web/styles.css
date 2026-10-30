@@ -532,3 +532,9 @@
 
 .drag-grip{display:inline-block;margin-right:5px;color:#a5a69f;font-size:14px;cursor:grab;touch-action:none}.track-row{transition:background-color .12s,opacity .12s}.track-row.dragging{opacity:.48;background:#c7f36a18;cursor:grabbing}.track-row.dragging td{border-color:#c7f36a66}
 .playlist-track-row,.playlist-track-row *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+
+/* Let the main view use more of the available desktop width. */
+.main-content { max-width: none; padding-left: clamp(18px, 2.2vw, 32px); padding-right: clamp(18px, 2.2vw, 32px); }
+@media (max-width: 620px) {
+  .main-content { padding-left: 18px; padding-right: 18px; }
+}
