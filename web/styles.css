@@ -210,6 +210,25 @@
 }
 .star-two { animation-delay: -1.9s; }
 .star-one { animation-duration: 4.6s; }
+.art-note { position: absolute; z-index: 3; color: #c7d99a; font-size: 17px; line-height: 1; opacity: .72; animation: welcome-star-drift 3.5s ease-in-out infinite; animation-play-state: paused; }
+.note-two { left: 13px; top: 57px; animation-delay: -.8s; }
+.note-three { right: 0; top: 40px; bottom: auto; left: auto; font-size: 14px; animation-delay: -2.2s; }
+.note-four { left: 0; bottom: 5px; right: auto; top: auto; animation-delay: -1.5s; }
+.star-three { left: 47px; top: 8px; font-size: 13px; color: #d7e5b4; animation-delay: -1.3s; }
+.star-four { right: 10px; bottom: 17px; font-size: 12px; color: #a5ad91; animation-delay: -2.7s; }
+.art-note, .art-star { font-size: 24px; }
+.art-note, .art-star { color: #c7d99a; }
+.star-one { left: 89px; top: 0; right: auto; bottom: auto; }
+.note-two { left: 146px; top: 25px; right: auto; bottom: auto; }
+.star-four { left: 151px; top: 92px; right: auto; bottom: auto; }
+.note-four { left: 106px; top: 137px; right: auto; bottom: auto; }
+.star-two { left: 35px; top: 137px; right: auto; bottom: auto; }
+.note-three { left: 0; top: 83px; right: auto; bottom: auto; }
+.star-three { left: 16px; top: 25px; right: auto; bottom: auto; }
+.art-star { animation-play-state: paused; }
+.welcome-art.is-playing .art-star { animation-play-state: running; }
+.art-disc div { animation: none; }
+.welcome-art.is-playing .art-note { animation-play-state: running; }
 @keyframes welcome-vinyl-spin {
   from { transform: rotate(-16deg); }
   to { transform: rotate(344deg); }
@@ -223,7 +242,7 @@
   50% { opacity: 1; transform: translateY(-7px) scale(1.08) rotate(8deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .art-disc, .art-disc div, .art-star { animation: none; }
+  .art-disc, .art-disc div, .art-star, .art-note { animation: none !important; }
 }
 
 .art-disc { animation-play-state: paused; }
