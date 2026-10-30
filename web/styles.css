@@ -249,6 +249,56 @@
 }
 .art-disc div { z-index: 1; }
 
+/* Tonearm and cartridge sit above the spinning record. */
+.tonearm {
+  position: absolute;
+  z-index: 2;
+  left: 138px;
+  top: 27px;
+  width: 64px;
+  height: 4px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #aebd83, #596448);
+  box-shadow: 0 1px 4px #000a;
+  transform: rotate(137deg);
+  transform-origin: left center;
+}
+.tonearm::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #a5b879;
+  border-radius: 50%;
+  background: radial-gradient(circle, #c7f36a 0 2px, #333a29 3px);
+}
+.cartridge {
+  position: absolute;
+  z-index: 2;
+  left: 91px;
+  top: 69px;
+  width: 14px;
+  height: 8px;
+  border: 1px solid #9dad70;
+  border-radius: 2px 2px 3px 3px;
+  background: linear-gradient(135deg, #84945f, #343a2d);
+  box-shadow: 0 2px 4px #0009;
+  transform: rotate(-43deg);
+}
+.cartridge::after {
+  content: "";
+  position: absolute;
+  width: 1px;
+  height: 8px;
+  left: 6px;
+  top: 6px;
+  background: #c7d99a;
+  transform: rotate(-12deg);
+  transform-origin: top;
+}
+
 .format-col { width: 76px; }
 .quality-col { width: 100px; }
 .format-cell { color: #a9aaa3; font-size: 10px; }
