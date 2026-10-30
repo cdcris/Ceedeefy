@@ -253,15 +253,16 @@
 .tonearm {
   position: absolute;
   z-index: 2;
-  left: 138px;
-  top: 27px;
-  width: 64px;
+  left: 128px;
+  top: 15px;
+  width: 48px;
   height: 4px;
   border-radius: 4px;
   background: linear-gradient(90deg, #aebd83, #596448);
   box-shadow: 0 1px 4px #000a;
-  transform: rotate(137deg);
+  transform: rotate(10deg);
   transform-origin: left center;
+  transition: transform .55s cubic-bezier(.2,.75,.25,1);
 }
 .tonearm::before {
   content: "";
@@ -277,15 +278,16 @@
 .cartridge {
   position: absolute;
   z-index: 2;
-  left: 91px;
-  top: 69px;
+  left: 170px;
+  top: 17px;
   width: 14px;
   height: 8px;
   border: 1px solid #9dad70;
   border-radius: 2px 2px 3px 3px;
   background: linear-gradient(135deg, #84945f, #343a2d);
   box-shadow: 0 2px 4px #0009;
-  transform: rotate(-43deg);
+  transform: rotate(-8deg);
+  transition: left .55s cubic-bezier(.2,.75,.25,1), top .55s cubic-bezier(.2,.75,.25,1), transform .55s cubic-bezier(.2,.75,.25,1);
 }
 .cartridge::after {
   content: "";
@@ -297,6 +299,15 @@
   background: #c7d99a;
   transform: rotate(-12deg);
   transform-origin: top;
+}
+.welcome-art.is-playing .tonearm { transform: rotate(107deg); }
+.welcome-art.is-playing .cartridge {
+  left: 110px;
+  top: 56px;
+  transform: rotate(-17deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tonearm, .cartridge { transition: none; }
 }
 
 .format-col { width: 76px; }
