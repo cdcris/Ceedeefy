@@ -446,3 +446,6 @@
 
 .topbar{height:24px}
 @media(max-width:620px){.topbar{height:48px}}
+
+#shuffle.active,#repeat.active{color:#bdd984}
+

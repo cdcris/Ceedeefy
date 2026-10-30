@@ -7,7 +7,7 @@ let tracks = [];
 let visibleTracks = [];
 let currentIndex = -1;
 let shuffle = false;
-let repeat = false;
+let repeatMode = 'off';
 let sortMode = 'artist';
 const legacyPlaylistStorageKey = 'ceedeefy.playlists.v1';
 const playbackStorageKey = 'ceedeefy.playback.v1';
@@ -348,12 +348,21 @@ async function restorePlayback() {
 function stepTrack(direction) {
   const queue = activeQueue.length ? activeQueue : tracks.map((_, index) => index);
   if (!queue.length) return;
-  if (shuffle && queue.length > 1) { let next = currentIndex; while (next === currentIndex) next = queue[Math.floor(Math.random()*queue.length)]; playTrack(next); }
-  else {
-    const position = queue.indexOf(currentIndex);
-    const nextPosition = position < 0 ? 0 : (position + direction + queue.length) % queue.length;
-    queuePosition = nextPosition; playTrack(queue[nextPosition]);
-  }
+  const position = queue.indexOf(currentIndex);
+  const currentPosition = position < 0 ? 0 : position;
+  let nextPosition = currentPosition + direction;
+  if (repeatMode === 'all') nextPosition = (nextPosition + queue.length) % queue.length;
+  else if (nextPosition < 0 || nextPosition >= queue.length) return;
+  queuePosition = nextPosition;
+  playTrack(queue[nextPosition]);
+}
+
+function updateRepeatControl() {
+  const button = document.querySelector('#repeat');
+  button.classList.toggle('active', repeatMode !== 'off');
+  button.textContent = repeatMode === 'one' ? '↻¹' : '↻';
+  button.setAttribute('aria-label', repeatMode === 'off' ? 'Repeat off' : repeatMode === 'all' ? 'Repeat list' : 'Repeat current song');
+  button.title = repeatMode === 'off' ? 'Repeat off' : repeatMode === 'all' ? 'Repeat list' : 'Repeat current song';
 }
 
 function playPlaylist(playlist) {
@@ -405,8 +414,30 @@ document.querySelector('#toggle-play').addEventListener('click', async () => {
 });
 document.querySelector('#previous').addEventListener('click', () => { if (audio.currentTime > 3) audio.currentTime=0; else stepTrack(-1); });
 document.querySelector('#next').addEventListener('click', () => stepTrack(1));
-document.querySelector('#shuffle').addEventListener('click', event => { shuffle=!shuffle; event.currentTarget.classList.toggle('active',shuffle); });
-document.querySelector('#repeat').addEventListener('click', event => { repeat=!repeat; audio.loop=repeat; event.currentTarget.classList.toggle('active',repeat); });
+document.querySelector('#shuffle').addEventListener('click', event => {
+  shuffle = !shuffle;
+  if (shuffle) {
+    if (!activeQueue.length) setQueueFromVisibleTracks();
+    const currentPosition = activeQueue.indexOf(currentIndex);
+    if (currentPosition > 0) activeQueue.splice(0, 0, ...activeQueue.splice(currentPosition, 1));
+    const shuffleStart = currentPosition >= 0 ? 1 : 0;
+    for (let index = activeQueue.length - 1; index > shuffleStart; index--) {
+      const randomIndex = shuffleStart + Math.floor(Math.random() * (index - shuffleStart + 1));
+      [activeQueue[index], activeQueue[randomIndex]] = [activeQueue[randomIndex], activeQueue[index]];
+    }
+  } else {
+    setQueueFromVisibleTracks();
+  }
+  queuePosition = activeQueue.indexOf(currentIndex);
+  event.currentTarget.classList.toggle('active', shuffle);
+  event.currentTarget.setAttribute('aria-label', shuffle ? 'Random on' : 'Random off');
+  event.currentTarget.title = shuffle ? 'Random on' : 'Random off';
+});
+document.querySelector('#repeat').addEventListener('click', () => {
+  repeatMode = repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off';
+  updateRepeatControl();
+});
+updateRepeatControl();
 document.querySelector('#volume').addEventListener('input', event => { audio.volume=Number(event.target.value); });
 document.querySelector('#seek').addEventListener('input', event => { if(Number.isFinite(audio.duration)) audio.currentTime=(Number(event.target.value)/1000)*audio.duration; });
 audio.volume=.8;
@@ -414,7 +445,14 @@ audio.addEventListener('play', () => { document.querySelector('.welcome-art').cl
 audio.addEventListener('pause', () => { document.querySelector('.welcome-art').classList.remove('is-playing'); playButton.textContent='▶'; playButton.setAttribute('aria-label','Play'); renderTracks(); savePlaybackState(true); });
 audio.addEventListener('loadedmetadata', () => { if(tracks[currentIndex]) tracks[currentIndex].duration=audio.duration; document.querySelector('#remaining').textContent=formatTime(audio.duration); renderTracks(); });
 audio.addEventListener('timeupdate', () => { document.querySelector('#elapsed').textContent=formatTime(audio.currentTime); document.querySelector('#remaining').textContent=formatTime(audio.duration); document.querySelector('#seek').value=Number.isFinite(audio.duration)&&audio.duration>0?String(Math.round(audio.currentTime/audio.duration*1000)):'0'; savePlaybackState(); });
-audio.addEventListener('ended', () => { if(!repeat) stepTrack(1); });
+audio.addEventListener('ended', () => {
+  if (repeatMode === 'one') {
+    audio.currentTime = 0;
+    audio.play().catch(error => console.error('Could not repeat this song:', error));
+  } else {
+    stepTrack(1);
+  }
+});
 window.addEventListener('pagehide', () => savePlaybackState(true));
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && document.body.classList.contains('mobile-menu-open')) setMobileMenuOpen(false);
